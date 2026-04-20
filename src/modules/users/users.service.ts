@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaUsersRepository } from './repositories/prisma-users.repository';
 import { User } from './entities/user.entity';
+import { CreateUserWithProfileInput } from './repositories/users.repository.interface';
 
 @Injectable()
 export class UsersService {
@@ -16,5 +17,9 @@ export class UsersService {
 
   async findByEmail(email: string): Promise<User | null> {
     return this.usersRepository.findByEmail(email);
+  }
+
+  async createUserWithProfile(input: CreateUserWithProfileInput): Promise<User> {
+    return this.usersRepository.createWithProfile(input);
   }
 }

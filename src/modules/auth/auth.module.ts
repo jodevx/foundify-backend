@@ -8,6 +8,7 @@ import { JwtStrategy } from './strategies/jwt.strategy';
 import { JwtTokenService } from './services/jwt-token.service';
 import { UsersModule } from '../users/users.module';
 import { BcryptPasswordHasher } from '../../shared/crypto/bcrypt-password-hasher';
+import { CloudinaryService } from '../../shared/storage/cloudinary.service';
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { BcryptPasswordHasher } from '../../shared/crypto/bcrypt-password-hasher
     JwtStrategy,
     JwtTokenService,
     BcryptPasswordHasher,
+    CloudinaryService,
   ],
 })
 export class AuthModule {}
