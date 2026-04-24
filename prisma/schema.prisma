@@ -17,12 +17,14 @@ enum Gender {
 }
 
 model User {
-  id           String   @id @default(uuid())
-  email        String   @unique
+  id           String      @id @default(uuid())
+  email        String      @unique
   passwordHash String
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
   profile      UserProfile?
+  items        Item[]
+  claims       Claim[]     @relation("UserClaims")
 
   @@map("users")
 }
@@ -41,4 +43,120 @@ model UserProfile {
   user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("user_profiles")
+}
+
+// ─────────────────────────────────────────────
+// MVP 2: Objetos Perdidos / Encontrados
+// ─────────────────────────────────────────────
+
+enum ItemType {
+  perdido
+  encontrado
+}
+
+enum ItemStatusPerdido {
+  reportado_perdido
+  en_validacion
+  recuperado
+  cerrado_sin_recuperar
+}
+
+enum ItemStatusEncontrado {
+  reportado_encontrado
+  en_resguardo
+  en_validacion
+  devuelto_propietario
+  entregado_autoridad
+  cerrado_sin_reclamo
+}
+
+enum ClaimStatus {
+  pendiente
+  aceptado
+  rechazado
+  cancelado
+}
+
+model Category {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  slug        String   @unique
+  icon        String?
+  description String?
+  createdAt   DateTime @default(now())
+  items       Item[]
+
+  @@map("categories")
+}
+
+model Item {
+  id          String   @id @default(uuid())
+
+  // Básico
+  title       String   @db.VarChar(150)
+  description String   @db.Text
+
+  // Clasificación
+  type        ItemType
+  categoryId  String
+  category    Category @relation(fields: [categoryId], references: [id])
+
+  // Estado — se almacena como string para soportar ambos enums
+  // Validación de valores válidos se hace en la capa de servicio
+  status      String   @db.VarChar(40)
+
+  // Ubicación y fecha del evento
+  location    String   @db.VarChar(255)
+  eventDate   DateTime @db.Date
+
+  // Atributos opcionales
+  color       String?  @db.VarChar(100)
+  material    String?  @db.VarChar(100)
+  brand       String?  @db.VarChar(100)
+  photoUrl    String?  @db.Text
+
+  // Relaciones
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  claims      Claim[]
+
+  // Auditoría
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deleted     Boolean  @default(false)
+
+  @@index([userId])
+  @@index([categoryId])
+  @@index([status])
+  @@index([type])
+  @@index([createdAt(sort: Desc)])
+  @@index([deleted, status])
+  @@index([type, status])
+  @@map("items")
+}
+
+model Claim {
+  id           String      @id @default(uuid())
+
+  // Relaciones
+  itemId       String
+  item         Item        @relation(fields: [itemId], references: [id])
+  claimantId   String
+  claimant     User        @relation("UserClaims", fields: [claimantId], references: [id])
+
+  // Contenido
+  claimMessage String      @db.Text
+
+  // Estado
+  status       ClaimStatus @default(pendiente)
+
+  // Auditoría
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  @@unique([itemId, claimantId])
+  @@index([itemId])
+  @@index([claimantId])
+  @@index([status])
+  @@map("claims")
 }

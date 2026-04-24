@@ -36,4 +36,29 @@ export class CloudinaryService {
       upload.end(file.buffer);
     });
   }
+
+  async uploadItemPhoto(file: UploadedFile): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const upload = cloudinary.uploader.upload_stream(
+        {
+          folder: 'foundify/items',
+          resource_type: 'image',
+          max_file_size: 5242880, // 5MB
+        },
+        (error, result) => {
+          if (error || !result) {
+            reject(
+              new InternalServerErrorException(
+                'Could not upload item photo',
+              ),
+            );
+            return;
+          }
+          resolve(result.secure_url);
+        },
+      );
+
+      upload.end(file.buffer);
+    });
+  }
 }
