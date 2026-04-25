@@ -50,8 +50,8 @@ model UserProfile {
 // ─────────────────────────────────────────────
 
 enum ItemType {
-  perdido
-  encontrado
+  lost_item
+  found_item
 }
 
 enum ItemStatusPerdido {

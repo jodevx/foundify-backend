@@ -182,12 +182,154 @@ Opciones comunes:
 
 ---
 
+---
+
+## 3) Tabla `categories`
+
+### Razón de ser
+Catálogo de categorías de objetos para facilitar clasificación y búsqueda.
+
+### Columnas
+
+- **`id`** (`uuid`, PK)
+- **`name`** (`text`, unique) — Nombre legible: "Electrónicos", "Documentos", etc.
+- **`slug`** (`text`, unique) — Identificador URL-friendly: `electronica`, `mascotas`, etc.
+- **`icon`** (`text`, nullable) — Emoji o código de ícono
+- **`description`** (`text`, nullable)
+- **`createdAt`** / **`updatedAt`** (`timestamp`)
+
+### Índices / restricciones relevantes
+
+- PK: `id`
+- UNIQUE: `name`, `slug`
+
+---
+
+## 4) Tabla `items`
+
+### Razón de ser
+Publicaciones de objetos perdidos o encontrados. El tipo de publicación se codifica con el enum `ItemType`.
+
+### Columnas
+
+- **`id`** (`uuid`, PK)
+- **`title`** (`text`, not null) — Título breve, 5–150 caracteres
+- **`description`** (`text`, not null) — Descripción detallada, 20–2000 caracteres
+- **`type`** (`ItemType` enum, not null)
+  - `lost_item` — El usuario perdió el objeto ("Lo perdí")
+  - `found_item` — El usuario encontró el objeto ("Quiero devolverlo")
+- **`status`** (`text`, not null) — Estado según flujo de negocio (ver sección Enums de Status)
+- **`categoryId`** (`uuid`, FK → `categories.id`, nullable)
+- **`location`** (`text`, not null) — Lugar donde ocurrió (perdido/encontrado)
+- **`eventDate`** (`timestamp`, not null) — Fecha del evento
+- **`photoUrl`** (`text`, nullable) — URL pública de Cloudinary
+- **`color`** (`text`, nullable) — Color del objeto
+- **`material`** (`text`, nullable) — Material del objeto
+- **`brand`** (`text`, nullable) — Marca
+- **`userId`** (`uuid`, FK → `users.id`) — Dueño de la publicación
+- **`deleted`** (`boolean`, default `false`) — Soft-delete
+- **`createdAt`** / **`updatedAt`** (`timestamp`)
+
+### Índices
+
+- `@@index([userId])`
+- `@@index([type])`
+- `@@index([status])`
+- `@@index([categoryId])`
+- `@@index([type, status])`
+
+---
+
+## 5) Tabla `claims`
+
+### Razón de ser
+Reclamos enviados por usuarios que creen que un objeto `found_item` es suyo.
+
+### Columnas
+
+- **`id`** (`uuid`, PK)
+- **`itemId`** (`uuid`, FK → `items.id`) — Item reclamado (solo tipo `found_item`)
+- **`claimantId`** (`uuid`, FK → `users.id`) — Usuario que reclama
+- **`claimMessage`** (`text`, not null) — Descripción de por qué cree que es suyo
+- **`status`** (`ClaimStatus` enum) — `pendiente` | `aceptado` | `rechazado` | `cancelado`
+- **`createdAt`** / **`updatedAt`** (`timestamp`)
+
+### Restricciones de negocio (aplicadas en servicio)
+
+- Solo se puede reclamar items de tipo `found_item`
+- El dueño del item no puede reclamarlo
+- El item no puede estar cerrado (`devuelto_propietario`, `entregado_autoridad`, `cerrado_sin_reclamo`)
+- Un usuario solo puede tener un reclamo pendiente/aceptado por item
+
+---
+
+## Enum `ItemType`
+
+Tipo de publicación. Los valores técnicos en BD son los valores del enum PostgreSQL.
+
+| Valor BD | Etiqueta UI | Significado |
+|----------|-------------|-------------|
+| `lost_item` | 🔍 Lo perdí | El dueño reporta que perdió el objeto |
+| `found_item` | ✨ Quiero devolverlo | Alguien encontró un objeto ajeno |
+
+> ⚠️ **Nunca** usar strings `'perdido'` o `'encontrado'` — esos fueron los valores anteriores. Desde la migración `20260425000000_rename_item_type_values` se usan `lost_item` y `found_item`.
+
+---
+
+## Enums de Status
+
+El estado de un item depende de su tipo:
+
+### Estados para `lost_item`
+| Status | Descripción |
+|--------|-------------|
+| `reportado_perdido` | Estado inicial al publicar |
+| `en_validacion` | En proceso de verificación |
+| `recuperado` | El dueño recuperó el objeto ✅ |
+| `cerrado_sin_recuperar` | Cerrado sin recuperación |
+
+### Estados para `found_item`
+| Status | Descripción |
+|--------|-------------|
+| `reportado_encontrado` | Estado inicial al publicar |
+| `en_resguardo` | El objeto está guardado seguro |
+| `en_validacion` | Verificando reclamos |
+| `devuelto_propietario` | Devuelto al dueño ✅ |
+| `entregado_autoridad` | Entregado a autoridad competente |
+| `cerrado_sin_reclamo` | Cerrado sin recibir reclamos |
+
+### `ClaimStatus`
+| Valor | Descripción |
+|-------|-------------|
+| `pendiente` | Reclamo enviado, esperando respuesta |
+| `aceptado` | El dueño del item aceptó el reclamo |
+| `rechazado` | El dueño rechazó el reclamo |
+| `cancelado` | El reclamante canceló |
+
+---
+
+## Integración Cloudinary
+
+Las imágenes de items se almacenan en Cloudinary. La BD guarda únicamente la URL pública.
+
+- **Carpeta:** `foundify/items`
+- **Campo en BD:** `items.photoUrl` (text, nullable)
+- **Tamaño máximo:** 5 MB
+- **Variable de entorno requerida:**
+  ```env
+  CLOUDINARY_CLOUD_NAME=tu_cloud
+  CLOUDINARY_API_KEY=tu_api_key
+  CLOUDINARY_API_SECRET=tu_api_secret
+  ```
+
+---
+
 ## Notas de seguridad
 
 - `passwordHash` debe generarse con bcrypt (salt rounds >= 10).
 - Nunca loggear contraseña ni hash en consola.
 - Validar URL de foto con DTOs y `class-validator`.
-- Mantener `JWT_SECRET` fuera de repositorio (usar `.env`).
+- Mantener `JWT_SECRET` y credenciales Cloudinary fuera de repositorio (usar `.env`).
 
 ---
 
@@ -205,51 +347,7 @@ Si cambias el modelo:
 
 ---
 
-## Incidencias reales y cómo resolverlas
-
-Durante la evolución del modelo (antes de dejar `user_profiles`), se presentó una inconsistencia de migraciones en desarrollo.
-
-### Error observado
-
-- **Drift detectado por Prisma** al correr:
-  - `npx prisma migrate dev --name add_user_profile_register`
-- Síntoma:
-  - La BD local no reflejaba exactamente el historial esperado de migraciones.
-  - `user_profiles` no aparecía en la BD.
-
-### Causa raíz
-
-- Existía una migración intermedia con estructura antigua (campos en `users`) que no coincidía con el modelo final separado (`users` + `user_profiles`).
-
-### Solución aplicada (dev)
-
-1. Corregir el SQL de la migración intermedia para que cree `user_profiles` (y no agregue columnas legacy en `users`).
-2. Reaplicar migraciones desde cero en entorno local:
-
-```bash
-npx prisma migrate reset --force
-```
-
-3. Volver a cargar datos de prueba:
-
-```bash
-npm run prisma:seed
-```
-
-4. Verificar tablas:
-
-```bash
-docker exec -i foundify-postgres psql -U postgres -d foundify -c "\dt"
-```
-
-Resultado esperado:
-- `_prisma_migrations`
-- `users`
-- `user_profiles`
-
----
-
-## Orden recomendado para cambios de esquema (evitar errores)
+## Orden recomendado para cambios de esquema
 
 1. Editar `prisma/schema.prisma`.
 2. Ejecutar `npx prisma generate`.

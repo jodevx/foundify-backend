@@ -1,4 +1,4 @@
 export enum ItemType {
-  perdido = 'perdido',
-  encontrado = 'encontrado',
+  lost_item = 'lost_item',
+  found_item = 'found_item',
 }

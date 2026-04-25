@@ -25,7 +25,7 @@ export class CreateItemDto {
   @Transform(({ value }) => value?.trim())
   description: string;
 
-  @IsEnum(ItemType, { message: 'El tipo debe ser "perdido" o "encontrado"' })
+  @IsEnum(ItemType, { message: 'El tipo debe ser "lost_item" o "found_item"' })
   type: ItemType;
 
   @IsString()

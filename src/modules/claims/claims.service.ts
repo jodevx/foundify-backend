@@ -10,7 +10,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { CreateClaimDto } from './dto/create-claim.dto';
 import { ManageClaimDto, ClaimAction } from './dto/manage-claim.dto';
 import { ClaimResponseDto } from './dto/claim-response.dto';
-import { CLOSED_STATUSES_ENCONTRADO } from '../items/enums/item-status.enum';
+import { CLOSED_STATUSES_FOUND_ITEM } from '../items/enums/item-status.enum';
 
 @Injectable()
 export class ClaimsService {
@@ -31,8 +31,8 @@ export class ClaimsService {
       throw new NotFoundException('Publicación no encontrada');
     }
 
-    // Solo se puede reclamar publicaciones de tipo "encontrado"
-    if (item.type !== 'encontrado') {
+    // Solo se puede reclamar publicaciones de tipo "found_item"
+    if (item.type !== 'found_item') {
       throw new UnprocessableEntityException(
         'Solo puedes reclamar publicaciones de objetos encontrados',
       );
@@ -44,7 +44,7 @@ export class ClaimsService {
     }
 
     // La publicación no puede estar cerrada
-    if (CLOSED_STATUSES_ENCONTRADO.includes(item.status)) {
+    if (CLOSED_STATUSES_FOUND_ITEM.includes(item.status)) {
       throw new UnprocessableEntityException(
         'Esta publicación ya está cerrada y no acepta más reclamos',
       );

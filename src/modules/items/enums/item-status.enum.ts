@@ -1,11 +1,11 @@
 export const VALID_STATUSES = {
-  perdido: [
+  lost_item: [
     'reportado_perdido',
     'en_validacion',
     'recuperado',
     'cerrado_sin_recuperar',
   ],
-  encontrado: [
+  found_item: [
     'reportado_encontrado',
     'en_resguardo',
     'en_validacion',
@@ -16,11 +16,11 @@ export const VALID_STATUSES = {
 } as const;
 
 export const INITIAL_STATUS = {
-  perdido: 'reportado_perdido',
-  encontrado: 'reportado_encontrado',
+  lost_item: 'reportado_perdido',
+  found_item: 'reportado_encontrado',
 } as const;
 
-export const CLOSED_STATUSES_ENCONTRADO = [
+export const CLOSED_STATUSES_FOUND_ITEM = [
   'devuelto_propietario',
   'entregado_autoridad',
   'cerrado_sin_reclamo',

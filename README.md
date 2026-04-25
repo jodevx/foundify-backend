@@ -80,6 +80,11 @@ JWT_SECRET="your-super-secret-jwt-key-change-in-production"
 JWT_EXPIRES_IN="15m"
 PORT=3000
 NODE_ENV="development"
+
+# Cloudinary (para upload de imágenes)
+CLOUDINARY_CLOUD_NAME=tu_cloud
+CLOUDINARY_API_KEY=tu_api_key
+CLOUDINARY_API_SECRET=tu_api_secret
 ```
 
 ⚠️ **IMPORTANTE**: Cambia el `JWT_SECRET` en producción.
@@ -130,74 +135,87 @@ El servidor estará disponible en: `http://localhost:3000`
 
 ## 📡 Endpoints Disponibles
 
-### 1. Login
+### Auth
+
+**POST** `/auth/register`
+```json
+{ "email": "user@example.com", "password": "Secure123!", "firstName": "Ana", "firstLastName": "García", "gender": "FEMALE" }
+```
 
 **POST** `/auth/login`
-
-```bash
-curl -X POST http://localhost:3000/auth/login \
-  -H "Content-Type: application/json" \
-  -d "{\"email\":\"admin@example.com\",\"password\":\"Admin12345!\"}"
-```
-
-**Respuesta exitosa (200):**
 ```json
-{
-  "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-}
+{ "email": "admin@example.com", "password": "Admin12345!" }
+// Respuesta: { "accessToken": "eyJ..." }
 ```
 
-**Respuesta de error (401):**
+**POST** `/auth/logout` — (requiere JWT)
+
+**GET** `/me` — Perfil del usuario autenticado (requiere JWT)
+
+---
+
+### Categories (público)
+
+**GET** `/categories` — Lista de categorías disponibles
+
 ```json
-{
-  "statusCode": 401,
-  "message": "Invalid credentials",
-  "error": "Unauthorized"
-}
+[
+  { "id": "uuid", "name": "Electrónicos", "slug": "electronica", "icon": "📱" },
+  ...
+]
 ```
 
-### 2. Obtener Perfil (Protegido)
+---
 
-**GET** `/me`
+### Items (publicaciones)
 
+| Método | Ruta | Auth | Descripción |
+|--------|------|------|-------------|
+| GET | `/items` | No | Listar con filtros y paginación |
+| GET | `/items/:id` | No | Ver detalle |
+| POST | `/items` | Sí | Crear publicación |
+| PUT | `/items/:id` | Sí | Editar publicación |
+| PATCH | `/items/:id/status` | Sí | Cambiar estado |
+| DELETE | `/items/:id` | Sí | Eliminar (soft-delete) |
+
+**Filtros GET `/items`:** `type`, `category`, `status`, `search`, `page`, `limit`
+
+**Tipos de publicación (`type`):**
+- `lost_item` — "Lo perdí" (UI: "🔍 Lo perdí")
+- `found_item` — "Quiero devolverlo" (UI: "✨ Quiero devolverlo")
+
+**Crear publicación** (`multipart/form-data`):
 ```bash
-curl -X GET http://localhost:3000/me \
-  -H "Authorization: Bearer <TU_ACCESS_TOKEN>"
+curl -X POST http://localhost:3000/items \
+  -H "Authorization: Bearer <TOKEN>" \
+  -F "title=Cartera negra" \
+  -F "description=Cartera de cuero encontrada en metro Insurgentes" \
+  -F "type=found_item" \
+  -F "categorySlug=accesorios" \
+  -F "location=Metro Insurgentes, CDMX" \
+  -F "eventDate=2026-04-25" \
+  -F "photo=@/ruta/a/foto.jpg"
 ```
 
-**Respuesta exitosa (200):**
+---
+
+### Claims (reclamos)
+
+| Método | Ruta | Auth | Descripción |
+|--------|------|------|-------------|
+| POST | `/items/:id/claims` | Sí | Enviar reclamo "¿es mío?" |
+| GET | `/items/:id/claims` | Sí (dueño) | Ver reclamos recibidos |
+| PATCH | `/items/:id/claims/:claimId` | Sí (dueño) | Aceptar / rechazar reclamo |
+
 ```json
-{
-  "id": "uuid-del-usuario",
-  "email": "admin@example.com",
-  "createdAt": "2026-04-06T...",
-  "updatedAt": "2026-04-06T..."
-}
+// POST /items/:id/claims
+{ "claimMessage": "Es mi cartera azul, adentro tiene mi CURP y una foto de mi perro" }
+
+// PATCH /items/:id/claims/:claimId
+{ "action": "aceptado" }  // o "rechazado"
 ```
 
-**Respuesta sin token (401):**
-```json
-{
-  "statusCode": 401,
-  "message": "Unauthorized"
-}
-```
-
-## 🧪 Prueba Completa
-
-1. **Login y obtener token:**
-```bash
-curl -X POST http://localhost:3000/auth/login \
-  -H "Content-Type: application/json" \
-  -d "{\"email\":\"admin@example.com\",\"password\":\"Admin12345!\"}"
-```
-
-2. **Copia el accessToken de la respuesta**
-
-3. **Usar el token para acceder a /me:**
-```bash
-curl -X GET http://localhost:3000/me \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+---
 ```
 
 ## 🗂️ Scripts Disponibles
@@ -225,17 +243,54 @@ npx prisma migrate reset
 npx prisma migrate status
 ```
 
-## 📦 Modelo de Datos
+## 📦 Modelo de Datos (principales)
 
 ```prisma
-model User {
-  id           String   @id @default(uuid())
-  email        String   @unique
-  passwordHash String
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+enum ItemType {
+  lost_item   // "Lo perdí" — el dueño reporta pérdida
+  found_item  // "Quiero devolverlo" — alguien encontró un objeto ajeno
+}
 
-  @@map("users")
+model Item {
+  id          String    @id @default(uuid())
+  title       String
+  description String    @db.Text
+  type        ItemType
+  status      String
+  categoryId  String?
+  category    Category? @relation(...)
+  location    String
+  eventDate   DateTime
+  photoUrl    String?   @db.Text   // URL Cloudinary
+  color       String?
+  material    String?
+  brand       String?
+  userId      String
+  deleted     Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@map("items")
+}
+
+model Category {
+  id    String  @id @default(uuid())
+  name  String  @unique
+  slug  String  @unique
+  icon  String?
+
+  @@map("categories")
+}
+
+model Claim {
+  id           String   @id @default(uuid())
+  itemId       String
+  claimantId   String
+  claimMessage String   @db.Text
+  status       String   @default("pendiente")
+  createdAt    DateTime @default(now())
+
+  @@map("claims")
 }
 ```
 
