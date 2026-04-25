@@ -6,10 +6,12 @@ import {
   UnprocessableEntityException,
   BadRequestException,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateClaimDto } from './dto/create-claim.dto';
 import { ManageClaimDto, ClaimAction } from './dto/manage-claim.dto';
 import { ClaimResponseDto } from './dto/claim-response.dto';
+import { InboxClaimResponseDto } from './dto/inbox-claim-response.dto';
 import {
   CLOSED_STATUSES_FOUND_ITEM,
   CLOSED_STATUSES_LOST_ITEM,
@@ -70,49 +72,76 @@ export class ClaimsService {
       );
     }
 
-    // Verificar si ya existe uno activo de este usuario
-    const existingClaim = await this.prisma.claim.findUnique({
-      where: { itemId_claimantId: { itemId, claimantId } },
+    // Verificar si ya existe uno activo (pendiente) de este usuario
+    const existingPendingClaim = await this.prisma.claim.findFirst({
+      where: { itemId, claimantId, status: 'pendiente' },
+      select: { id: true },
     });
 
-    if (existingClaim && existingClaim.status === 'pendiente') {
+    if (existingPendingClaim) {
       throw new ConflictException(`Ya tienes un ${noun} activo en esta publicación`);
     }
 
-    // Si había uno cancelado/rechazado anterior podría reenviar
-    // pero por simplicidad MVP 2 se bloquea con unique constraint
-    if (existingClaim) {
-      throw new ConflictException(
-        `Ya enviaste un ${noun} anterior sobre esta publicación`,
-      );
-    }
+    try {
+      const claimCreate = this.prisma.claim.create({
+        data: {
+          itemId,
+          claimantId,
+          claimMessage: dto.claimMessage,
+        },
+        include: {
+          claimant: { select: { id: true, email: true } },
+        },
+      });
 
-    const claimCreate = this.prisma.claim.create({
-      data: {
-        itemId,
-        claimantId,
-        claimMessage: dto.claimMessage,
+      if (item.type === 'found_item') {
+        const [claim] = await this.prisma.$transaction([
+          claimCreate,
+          this.prisma.item.update({
+            where: { id: itemId },
+            data: { status: 'en_validacion' },
+          }),
+        ]);
+
+        return new ClaimResponseDto(claim as any);
+      }
+
+      const claim = await claimCreate;
+
+      return new ClaimResponseDto(claim as any);
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        throw new ConflictException(
+          `No se pudo enviar el ${noun} porque ya existe un registro previo para esta publicación`,
+        );
+      }
+
+      throw error;
+    }
+  }
+
+  async getInbox(
+    requestingUserId: string,
+  ): Promise<{ data: InboxClaimResponseDto[] }> {
+    const claims = await this.prisma.claim.findMany({
+      where: {
+        status: 'pendiente',
+        item: {
+          userId: requestingUserId,
+          deleted: false,
+        },
       },
+      orderBy: { createdAt: 'desc' },
       include: {
         claimant: { select: { id: true, email: true } },
+        item: { select: { id: true, title: true, type: true } },
       },
     });
 
-    if (item.type === 'found_item') {
-      const [claim] = await this.prisma.$transaction([
-        claimCreate,
-        this.prisma.item.update({
-          where: { id: itemId },
-          data: { status: 'en_validacion' },
-        }),
-      ]);
-
-      return new ClaimResponseDto(claim as any);
-    }
-
-    const claim = await claimCreate;
-
-    return new ClaimResponseDto(claim as any);
+    return { data: claims.map((claim) => new InboxClaimResponseDto(claim as any)) };
   }
 
   // ─── Listar avisos/reclamos de una publicación (solo el dueño) ─────────────
