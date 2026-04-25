@@ -11,7 +11,7 @@ export class ItemResponseDto {
   material: string | null;
   brand: string | null;
     photoUrl: string | null;
-  user: { id: string; email: string };
+  user: { id: string; email: string; name: string };
   isOwner?: boolean;
   pendingClaimsCount?: number;
   createdAt: string;
@@ -31,7 +31,16 @@ export class ItemResponseDto {
       color: string | null;
       material: string | null;
       brand: string | null;
-      user: { id: string; email: string };
+      user: {
+        id: string;
+        email: string;
+        profile?: {
+          firstName: string;
+          secondName: string | null;
+          firstLastName: string;
+          secondLastName: string;
+        } | null;
+      };
       createdAt: Date;
       updatedAt: Date;
     },
@@ -50,7 +59,16 @@ export class ItemResponseDto {
     this.material = item.material;
     this.brand = item.brand;
       this.photoUrl = item.photoUrl ?? null;
-    this.user = item.user;
+    const profile = item.user.profile;
+    const fullName = profile
+      ? `${profile.firstName} ${profile.firstLastName}`
+      : 'Usuario';
+
+    this.user = {
+      id: item.user.id,
+      email: item.user.email,
+      name: fullName,
+    };
     this.createdAt = item.createdAt.toISOString();
     this.updatedAt = item.updatedAt.toISOString();
     if (requestingUserId !== undefined) {

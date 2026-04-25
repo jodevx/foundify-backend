@@ -69,7 +69,20 @@ export class ItemsService {
       },
       include: {
         category: { select: { id: true, name: true, slug: true, icon: true } },
-        user: { select: { id: true, email: true } },
+        user: {
+          select: {
+            id: true,
+            email: true,
+            profile: {
+              select: {
+                firstName: true,
+                secondName: true,
+                firstLastName: true,
+                secondLastName: true,
+              },
+            },
+          },
+        },
       },
     });
 
@@ -119,7 +132,20 @@ export class ItemsService {
         orderBy: { createdAt: 'desc' },
         include: {
           category: { select: { id: true, name: true, slug: true, icon: true } },
-          user: { select: { id: true, email: true } },
+          user: {
+            select: {
+              id: true,
+              email: true,
+              profile: {
+                select: {
+                  firstName: true,
+                  secondName: true,
+                  firstLastName: true,
+                  secondLastName: true,
+                },
+              },
+            },
+          },
         },
       }),
       this.prisma.item.count({ where }),
@@ -168,7 +194,20 @@ export class ItemsService {
       where: { id, deleted: false },
       include: {
         category: { select: { id: true, name: true, slug: true, icon: true } },
-        user: { select: { id: true, email: true } },
+        user: {
+          select: {
+            id: true,
+            email: true,
+            profile: {
+              select: {
+                firstName: true,
+                secondName: true,
+                firstLastName: true,
+                secondLastName: true,
+              },
+            },
+          },
+        },
       },
     });
 
@@ -272,7 +311,20 @@ export class ItemsService {
       },
       include: {
         category: { select: { id: true, name: true, slug: true, icon: true } },
-        user: { select: { id: true, email: true } },
+        user: {
+          select: {
+            id: true,
+            email: true,
+            profile: {
+              select: {
+                firstName: true,
+                secondName: true,
+                firstLastName: true,
+                secondLastName: true,
+              },
+            },
+          },
+        },
       },
     });
 

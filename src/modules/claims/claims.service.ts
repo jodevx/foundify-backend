@@ -136,7 +136,18 @@ export class ClaimsService {
       },
       orderBy: { createdAt: 'desc' },
       include: {
-        claimant: { select: { id: true, email: true } },
+        claimant: {
+          select: {
+            id: true,
+            email: true,
+            profile: {
+              select: {
+                firstName: true,
+                firstLastName: true,
+              },
+            },
+          },
+        },
         item: { select: { id: true, title: true, type: true } },
       },
     });
