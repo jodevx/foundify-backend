@@ -21,7 +21,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 export class ClaimsController {
   constructor(private readonly claimsService: ClaimsService) {}
 
-  // ─── Enviar reclamo "Creo que es mío" ──────────────────────────────────────
+  // ─── Enviar aviso/reclamo sobre publicación ────────────────────────────────
   @Post()
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.CREATED)
@@ -34,7 +34,7 @@ export class ClaimsController {
     return this.claimsService.create(itemId, dto, claimantId);
   }
 
-  // ─── Listar reclamos (solo el dueño del item) ──────────────────────────────
+  // ─── Listar avisos/reclamos (solo el dueño del item) ───────────────────────
   @Get()
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
@@ -43,7 +43,7 @@ export class ClaimsController {
     return this.claimsService.findByItem(itemId, userId);
   }
 
-  // ─── Gestionar reclamo: aceptar / rechazar ─────────────────────────────────
+  // ─── Gestionar aviso/reclamo: aceptar / rechazar ───────────────────────────
   @Patch(':claimId')
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
@@ -57,7 +57,7 @@ export class ClaimsController {
     return this.claimsService.manage(itemId, claimId, dto, userId);
   }
 
-  // ─── Cancelar reclamo propio ────────────────────────────────────────────────
+  // ─── Cancelar aviso/reclamo propio ──────────────────────────────────────────
   @Delete(':claimId')
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)

@@ -1,13 +1,11 @@
 export const VALID_STATUSES = {
   lost_item: [
     'reportado_perdido',
-    'en_validacion',
     'recuperado',
     'cerrado_sin_recuperar',
   ],
   found_item: [
     'reportado_encontrado',
-    'en_resguardo',
     'en_validacion',
     'devuelto_propietario',
     'entregado_autoridad',
@@ -26,19 +24,23 @@ export const CLOSED_STATUSES_FOUND_ITEM = [
   'cerrado_sin_reclamo',
 ];
 
+export const CLOSED_STATUSES_LOST_ITEM = [
+  'recuperado',
+  'cerrado_sin_recuperar',
+];
+
 // Transiciones permitidas: status_actual → [status_siguientes]
 export const ALLOWED_TRANSITIONS: Record<string, string[]> = {
-  reportado_perdido: ['en_validacion', 'recuperado', 'cerrado_sin_recuperar'],
-  en_validacion: ['recuperado', 'cerrado_sin_recuperar', 'en_resguardo'],
+  reportado_perdido: ['recuperado', 'cerrado_sin_recuperar'],
+  recuperado: ['reportado_perdido'],
+  cerrado_sin_recuperar: ['reportado_perdido'],
+  en_validacion: [],
   reportado_encontrado: [
-    'en_resguardo',
     'devuelto_propietario',
     'entregado_autoridad',
     'cerrado_sin_reclamo',
   ],
-  en_resguardo: [
-    'devuelto_propietario',
-    'entregado_autoridad',
-    'cerrado_sin_reclamo',
-  ],
+  devuelto_propietario: ['reportado_encontrado'],
+  entregado_autoridad: ['reportado_encontrado'],
+  cerrado_sin_reclamo: ['reportado_encontrado'],
 };

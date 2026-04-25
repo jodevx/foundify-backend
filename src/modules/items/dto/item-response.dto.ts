@@ -13,6 +13,7 @@ export class ItemResponseDto {
     photoUrl: string | null;
   user: { id: string; email: string };
   isOwner?: boolean;
+  pendingClaimsCount?: number;
   createdAt: string;
   updatedAt: string;
 
@@ -35,6 +36,7 @@ export class ItemResponseDto {
       updatedAt: Date;
     },
     requestingUserId?: string,
+    pendingClaimsCount?: number,
   ) {
     this.id = item.id;
     this.title = item.title;
@@ -53,6 +55,9 @@ export class ItemResponseDto {
     this.updatedAt = item.updatedAt.toISOString();
     if (requestingUserId !== undefined) {
       this.isOwner = item.user.id === requestingUserId;
+      if (this.isOwner) {
+        this.pendingClaimsCount = pendingClaimsCount ?? 0;
+      }
     }
   }
 }

@@ -125,8 +125,33 @@ export class ItemsService {
       this.prisma.item.count({ where }),
     ]);
 
+    const itemIds = items.map((item) => item.id);
+    let pendingClaimsByItem = new Map<string, number>();
+
+    if (itemIds.length > 0) {
+      const pendingCounts = await this.prisma.claim.groupBy({
+        by: ['itemId'],
+        where: {
+          itemId: { in: itemIds },
+          status: 'pendiente',
+        },
+        _count: { _all: true },
+      });
+
+      pendingClaimsByItem = new Map(
+        pendingCounts.map((entry) => [entry.itemId, entry._count._all]),
+      );
+    }
+
     return {
-      data: items.map((i) => new ItemResponseDto(i as any, requestingUserId)),
+      data: items.map(
+        (i) =>
+          new ItemResponseDto(
+            i as any,
+            requestingUserId,
+            pendingClaimsByItem.get(i.id) ?? 0,
+          ),
+      ),
       pagination: {
         page,
         limit,
@@ -151,7 +176,11 @@ export class ItemsService {
       throw new NotFoundException('Publicación no encontrada');
     }
 
-    return new ItemResponseDto(item as any, requestingUserId);
+    const pendingClaimsCount = await this.prisma.claim.count({
+      where: { itemId: id, status: 'pendiente' },
+    });
+
+    return new ItemResponseDto(item as any, requestingUserId, pendingClaimsCount);
   }
 
   // ─── Editar publicación ─────────────────────────────────────────────────────
@@ -171,6 +200,25 @@ export class ItemsService {
       throw new ForbiddenException('No eres el dueño de esta publicación');
     }
 
+    const initialStatus = INITIAL_STATUS[item.type as keyof typeof INITIAL_STATUS];
+    const isNonInitialStatus = item.status !== initialStatus;
+    const isTryingToEditContent =
+      dto.title !== undefined ||
+      dto.description !== undefined ||
+      dto.categorySlug !== undefined ||
+      dto.location !== undefined ||
+      dto.eventDate !== undefined ||
+      dto.color !== undefined ||
+      dto.material !== undefined ||
+      dto.brand !== undefined ||
+      photoUrl !== undefined;
+
+    if (isNonInitialStatus && isTryingToEditContent) {
+      throw new UnprocessableEntityException(
+        'No puedes editar una publicación que ya cambió de estado. Reábrela primero.',
+      );
+    }
+
     let categoryId: string | undefined;
     if (dto.categorySlug) {
       const category = await this.prisma.category.findUnique({
@@ -184,8 +232,9 @@ export class ItemsService {
 
     // Validar transición de status si se envía
     if (dto.status) {
-      const validStatuses = VALID_STATUSES[item.type as keyof typeof VALID_STATUSES];
-      if (!validStatuses.includes(dto.status as any)) {
+      const validStatuses =
+        VALID_STATUSES[item.type as keyof typeof VALID_STATUSES] as readonly string[];
+      if (!validStatuses.includes(dto.status)) {
         throw new BadRequestException(
           `Status inválido para publicación de tipo "${item.type}"`,
         );
